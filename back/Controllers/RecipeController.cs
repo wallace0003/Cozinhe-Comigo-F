@@ -275,5 +275,108 @@ namespace Cozinhe_Comigo_API.Controllers
                 });
             }
         }
+
+        // GET: api/recipe/{id}
+        [HttpGet("{id}")]
+        public async Task<ActionResult> GetById(
+            int id,
+            [FromHeader] string? requesterUserToken = null
+        ) {
+            try {
+                var recipe = await _context.Recipes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(r => r.Id == id);
+
+                if (recipe == null) {
+                    return NotFound(new ReturnDto<Recipe>(
+                        EInternStatusCode.BAD_REQUEST,
+                        $"Recipe with ID {id} not found.",
+                        null
+                    ));
+                }
+
+                // Verificar permissão de visualização
+                if (!recipe.IsPublic) {
+                    if (string.IsNullOrEmpty(requesterUserToken)) {
+                        return BadRequest(new ReturnDto<Recipe>(
+                            EInternStatusCode.BAD_REQUEST,
+                            "You must be authenticated to view a private recipe.",
+                            null
+                        ));
+                    }
+
+                    var token = await _context.Tokens
+                        .FirstOrDefaultAsync(t => t.TokenCode == requesterUserToken);
+
+                    if (token == null || token.ExpiredAt < DateTime.UtcNow) {
+                        return BadRequest(new ReturnDto<Recipe>(
+                            EInternStatusCode.BAD_REQUEST,
+                            "Invalid or expired authentication token.",
+                            null
+                        ));
+                    }
+
+                    if (token.UserId != recipe.UserID) {
+                        return BadRequest(new ReturnDto<Recipe>(
+                            EInternStatusCode.BAD_REQUEST,
+                            "You don't have permission to view this private recipe.",
+                            null
+                        ));
+                    }
+                }
+
+                // Buscar informações do autor
+                var author = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.id == recipe.UserID);
+
+                if (author == null) {
+                    return StatusCode(500, new ReturnDto<Recipe>(
+                        EInternStatusCode.INTERNAL_ERROR,
+                        "Author information not found.",
+                        null
+                    ));
+                }
+
+                // Montar resposta com informações do autor
+                var response = new {
+                    id = recipe.Id,
+                    userID = recipe.UserID,
+                    title = recipe.Title,
+                    ingredients = recipe.Ingredients,
+                    instructions = recipe.Instructions,
+                    imageUrl = recipe.ImageUrl,
+                    videoUrl = recipe.VideoUrl,
+                    createdAt = recipe.CreatedAt,
+                    avaliationsCount = recipe.AvaliationsCount,
+                    isPublic = recipe.IsPublic,
+                    averageRating = recipe.AverageRating,
+                    categories = recipe.Categories,
+                    portions = recipe.Portions,
+                    preparationTime = recipe.PreparationTime,
+                    author = new {
+                        id = author.id,
+                        name = author.Name,
+                        profirePictureUrl = author.ProfirePictureUrl,
+                        biography = author.Biography
+                    }
+                };
+
+                return Ok(new ReturnDto<object>(
+                    EInternStatusCode.OK,
+                    "Recipe retrieved successfully",
+                    response
+                ));
+            } catch (Exception ex) {
+                Console.WriteLine("Internal Error");
+                Console.WriteLine(ex.Message);
+
+                return StatusCode(500, new ReturnDto<Recipe>(
+                    EInternStatusCode.INTERNAL_ERROR,
+                    "Internal server error while retrieving recipe.",
+                    null
+                ));
+            }
+        }
     }
 }

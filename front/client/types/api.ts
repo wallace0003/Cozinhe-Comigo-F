@@ -118,3 +118,53 @@ export interface Avaliation {
   Content: string;
   CreatedAt: string;
 }
+
+export interface User {
+  id: number;
+  name: string;
+  profirePictureUrl?: string;
+  biography?: string;
+}
+
+export interface AvaliationWithAuthor {
+  Id: number;
+  RecipeId: number;
+  Rating: number;
+  UserId: number;
+  Content: string;
+  CreatedAt: string;
+  Author?: User;
+}
+
+export interface RecipeDetailResponse {
+  id: number;
+  userID: number;
+  title: string;
+  ingredients: string[];
+  instructions: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  createdAt: string;
+  avaliationsCount: number;
+  isPublic: boolean;
+  averageRating: number;
+  categories: string[];
+  portions?: number;
+  preparationTime?: number;
+  author: {
+    id: number;
+    name: string;
+    profirePictureUrl?: string;
+    biography?: string;
+  };
+}
+
+export interface AvaliationsResponse {
+  internStatusCode: number;
+  returnMessage: string;
+  returnObject: Avaliation[];
+  totalItems: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+}

@@ -47,6 +47,7 @@ export default function Login() {
       if (response.message?.includes('successful')) {
         
         localStorage.setItem('token', response.token);
+        localStorage.setItem('userId', response.user.id.toString());
         localStorage.setItem('user', JSON.stringify(response.user));
         
         navigate('/');

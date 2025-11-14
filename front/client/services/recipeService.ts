@@ -1,6 +1,5 @@
-// RecipeService.txt - Atualizado
 import { api } from '@/lib/api';
-import { CreateRecipeRequest, CreateRecipeResponse, RecipesResponse, CreateAvaliationDto, AvaliationResponse } from '@/types/api';
+import { CreateRecipeRequest, CreateRecipeResponse, RecipesResponse, CreateAvaliationDto, AvaliationResponse, RecipeDetailResponse, AvaliationsResponse } from '@/types/api';
 
 export const recipeService = {
   // GET /Recipe - Listar receitas com filtros
@@ -40,6 +39,11 @@ export const recipeService = {
     return api.get(endpoint);
   },
 
+  // GET /Recipe/{id} - Obter receita por ID
+  async getRecipeById(id: number): Promise<{ returnObject: RecipeDetailResponse }> {
+    return api.get(`/Recipe/${id}`);
+  },
+
   // POST /Recipe - Criar receita
   async createRecipe(recipeData: CreateRecipeRequest): Promise<CreateRecipeResponse> {
     return api.post('/Recipe', recipeData);
@@ -51,7 +55,27 @@ export const recipeService = {
   },
 
   // GET /Comments - Listar avaliações de uma receita
-  async getAvaliations(recipeId: number, pageSize: number = 10, pageNumber: number = 1): Promise<any> {
-    return api.get(`/Comments?RecipeId=${recipeId}&PageSize=${pageSize}&PageNumber=${pageNumber}`);
+  async getAvaliations(recipeId: number, pageSize: number = 10, pageNumber: number = 1): Promise<AvaliationsResponse> {
+    const res = await api.get(`/Comments?RecipeId=${recipeId}&PageSize=${pageSize}&PageNumber=${pageNumber}`);
+
+    // Normaliza as propriedades da resposta para o formato esperado pelo frontend
+    if (res && res.returnObject && Array.isArray(res.returnObject)) {
+      const normalized = res.returnObject.map((r: any) => ({
+        Id: r.Id ?? r.id,
+        RecipeId: r.RecipeId ?? r.recipeId,
+        Rating: r.Rating ?? r.rating,
+        UserId: r.UserId ?? r.userId,
+        Content: r.Content ?? r.content,
+        CreatedAt: (r.CreatedAt ?? r.createdAt)?.toString(),
+        Author: r.Author ?? r.author
+      }));
+
+      return {
+        ...res,
+        returnObject: normalized
+      } as AvaliationsResponse;
+    }
+
+    return res;
   },
 };

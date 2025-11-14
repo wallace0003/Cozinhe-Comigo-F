@@ -3,221 +3,204 @@ import { useNavigate, useParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import StarRating from "@/components/StarRating";
-import { ArrowLeft, Download, Heart, Star, Play, Pause } from "lucide-react";
-
-// Dados vem do backend (exemplo estático aqui)
-interface Recipe {
-  id: string; 
-  title: string;
-  category: string;
-  categoryColor: string;
-  datePosted: string;
-  author: {
-    id: string;
-    name: string;
-    rating: number;
-    avatar: string;
-  };
-  images: string[];
-  video?: string;
-  ingredients: string;
-  preparation: string;
-  yield: string;
-  visibility: "public" | "private";
-  averageRating: number;
-  reviewCount: number;
-}
-
-interface Review {
-  id: string;
-  author: {
-    name: string;
-    avatar: string;
-  };
-  timeAgo: string;
-  rating: number;
-  comment: string;
-  createdAt: string;
-}
+import { ArrowLeft, Download, Heart, Star, AlertCircle, Loader } from "lucide-react";
+import { recipeService } from "@/services/recipeService";
+import { RecipeDetailResponse, Avaliation } from "@/types/api";
 
 
 
 
 export default function RecipeDetail() {
   const navigate = useNavigate();
-  const { id } = useParams(); 
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const { id } = useParams();
+  const [recipe, setRecipe] = useState<RecipeDetailResponse | null>(null);
+  const [reviews, setReviews] = useState<Avaliation[]>([]);
   const [userRating, setUserRating] = useState(0);
   const [userComment, setUserComment] = useState("");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Função para carregar receita
+  const fetchRecipe = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      if (!id) {
+        setError("ID da receita não fornecido");
+        return;
+      }
+
+      const recipeId = parseInt(id);
+      const response = await recipeService.getRecipeById(recipeId);
+      
+      if (response.returnObject) {
+        setRecipe(response.returnObject);
+      } else {
+        setError("Receita não encontrada");
+      }
+    } catch (err: any) {
+      console.error("Erro ao carregar receita:", err);
+      const errorMessage = err.body?.returnMessage || err.message || "Erro ao carregar receita";
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Função para carregar avaliações
+  const fetchReviews = async () => {
+    try {
+      if (!id) return;
+
+      const recipeId = parseInt(id);
+      const response = await recipeService.getAvaliations(recipeId, 50, 1);
+      
+      if (response.returnObject && Array.isArray(response.returnObject)) {
+        setReviews(response.returnObject);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar avaliações:", err);
+    }
+  };
+
+  // Carrega receita e avaliações ao montar o componente
   useEffect(() => {
-    const fetchRecipe = async () => {
-      try {
-        setIsLoading(true);
-        // TODO: Substituir pela chamada real da API
-        const response = await fetch(`/api/recipes/${id}`);
-        if (response.ok) {
-          const recipeData = await response.json();
-          setRecipe(recipeData);
-        } else {
-          throw new Error('Receita não encontrada');
-        }
-      } catch (error) {
-        console.error('Erro ao carregar receita:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    const fetchReviews = async () => {
-      try {
-        // TODO: Substituir pela chamada real da API
-        const response = await fetch(`/api/recipes/${id}/reviews`);
-        if (response.ok) {
-          const reviewsData = await response.json();
-          setReviews(reviewsData);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar avaliações:', error);
-      }
-    };
-
     if (id) {
       fetchRecipe();
       fetchReviews();
     }
   }, [id]);
 
+  // Função para calcular tempo decorrido
+  const getTimeAgo = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Agora mesmo";
+    if (diffMins < 60) return `${diffMins}m atrás`;
+    if (diffHours < 24) return `${diffHours}h atrás`;
+    if (diffDays < 30) return `${diffDays}d atrás`;
+    
+    return date.toLocaleDateString("pt-BR");
+  };
+
+  // Função para submeter avaliação
   const handleSubmitReview = async () => {
     if (!recipe || userRating === 0 || !userComment.trim()) {
-      alert('Por favor, preencha a avaliação e o comentário');
+      setError("Por favor, preencha a avaliação e o comentário");
+      return;
+    }
+
+    // Verificar se usuário está autenticado
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("userId");
+
+    if (!token || !userId) {
+      setError("Você precisa estar autenticado para avaliar uma receita");
+      navigate("/login");
       return;
     }
 
     try {
       setIsSubmittingReview(true);
-      console.log('Enviando avaliação:', {
-        rating: userRating,
-        comment: userComment.trim()
-      });
-      
-      // TODO: Substituir pela chamada real da API
-      const response = await fetch(`/api/recipes/${recipe.id}/reviews`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          rating: userRating,
-          comment: userComment.trim()
-        })
-      });
+      setError(null);
 
-      if (response.ok) {
-        const newReview = await response.json();
-        setReviews(prev => [newReview, ...prev]);
+      const avaliationData = {
+        recipeId: recipe.id,
+        rating: userRating,
+        userId: parseInt(userId),
+        content: userComment.trim(),
+      };
+
+      const response = await recipeService.createAvaliation(avaliationData);
+
+      if (response.InternStatusCode === 0) { // 0 = sucesso
+        // Adicionar avaliação à lista
+        setReviews((prev) => [response.Data, ...prev]);
         setUserRating(0);
-        setUserComment('');
-        alert('Avaliação enviada com sucesso!');
+        setUserComment("");
+        setSuccessMessage("Avaliação enviada com sucesso!");
+        
+        // Limpar mensagem de sucesso após 3 segundos
+        setTimeout(() => setSuccessMessage(null), 3000);
       } else {
-        throw new Error('Erro ao enviar avaliação');
+        setError(response.ReturnMessage || "Erro ao enviar avaliação");
       }
-    } catch (error) {
-      console.error('Erro ao enviar avaliação:', error);
-      alert('Erro ao enviar avaliação');
+    } catch (err: any) {
+      console.error("Erro ao enviar avaliação:", err);
+      const errorMessage = err.body?.returnMessage || err.message || "Erro ao enviar avaliação";
+      setError(errorMessage);
     } finally {
       setIsSubmittingReview(false);
     }
   };
 
-  const toggleVideoPlayback = () => {
-    setIsVideoPlaying(!isVideoPlaying);
-  };
-
-  useEffect(() => {
-    if (!recipe) {
-      setRecipe({
-        id: "1",
-        title: "Bife Grelhado",
-        category: "Prato principal",
-        categoryColor: "#8673A1",
-        datePosted: "13/10/2025",
-        author: {
-          id: "1",
-          name: "Rafaela Dutra",
-          rating: 4.9,
-          avatar: "https://marketplace.canva.com/Dz63E/MAF4KJDz63E/1/tl/canva-user-icon-MAF4KJDz63E.png",
-        },
-        images: [
-          "https://images.unsplash.com/photo-1600891964092-4316c288032e?w=600&h=400&fit=crop",
-          "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=600&h=400&fit=crop",
-        ],
-        video: "https://example.com/video.mp4", // URL do vídeo
-        ingredients: `2 bifes de contrafilé (200g cada)
-2 colheres de sopa de azeite de oliva
-4 dentes de alho amassados
-1 colher de chá de sal marinho
-½ colher de chá de pimenta do reino moída na hora
-1 colher de chá de alecrim fresco picado
-1 colher de chá de tomilho fresco
-2 cenouras médias descascadas e cortadas em rodelas
-1 abobrinha média cortada em cubos
-1 pimentão vermelho cortado em tiras
-1 cebola roxa cortada em oito partes
-2 colheres de sopa de azeite de oliva
-1 colher de chá de sal
-½ colher de chá de páprica defumada
-Raminhos de alecrim fresco para finalizar`,
-        preparation: `Preaqueça o forno a 200°C.
-Em uma tigela grande, misture todos os legumes cortados com o azeite, sal e páprica.
-Espalhe os legumes em uma assadeira grande, formando uma camada uniforme.
-Asse por 20-25 minutos, ou até que os legumes estejam dourados e macios, virando na metade do tempo.
-
-Enquanto os legumes assam, tempere os bifes com alho, sal, pimenta, alecrim e tomilho. Deixe marinar por 5 minutos.
-Aqueça uma frigideira ou grelha em fogo alto com 1 colher de azeite.
-Grelhe os bifes por 3-4 minutos de cada lado para um ponto ao médio, ou ajuste conforme preferência.
-Retire do fogo e deixe descansar por 2-3 minutos antes de servir.
-
-Distribua os legumes assados em dois pratos.
-Coloque um bife grelhado sobre os legumes em cada prato.
-Finalize com um fio de azeite e raminhos de alecrim fresco.
-Sirva imediatamente.`,
-        yield: "2 porções",
-        visibility: "public",
-        averageRating: 4.8,
-        reviewCount: 24
-      });
-    }
-  }, [recipe]);
-
+  // Estado de carregamento
   if (isLoading) {
     return (
       <div className="min-h-screen bg-sky-blue flex flex-col">
         <Header />
         <main className="flex-1 flex items-center justify-center">
-          <div className="text-lg">Carregando receita...</div>
+          <div className="flex flex-col items-center gap-3">
+            <Loader className="w-8 h-8 animate-spin text-dark-brown" />
+            <span className="text-lg text-dark-brown">Carregando receita...</span>
+          </div>
         </main>
         <Footer />
       </div>
     );
   }
 
-  if (!recipe) {
+  // Estado de erro
+  if (error && !recipe) {
     return (
       <div className="min-h-screen bg-sky-blue flex flex-col">
         <Header />
         <main className="flex-1 flex items-center justify-center">
-          <div className="text-lg">Receita não encontrada</div>
+          <div className="flex flex-col items-center gap-4 max-w-md">
+            <AlertCircle className="w-12 h-12 text-red-500" />
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-dark-brown mb-2">Erro ao carregar receita</h2>
+              <p className="text-dark-brown/70">{error}</p>
+            </div>
+            <button
+              onClick={() => navigate(-1)}
+              className="mt-4 px-6 py-2 bg-dark-brown text-white rounded-lg font-bold hover:bg-dark-brown/90 transition-colors"
+            >
+              Voltar
+            </button>
+          </div>
         </main>
         <Footer />
       </div>
     );
   }
+
+  // Sem receita
+  if (!recipe) {
+    return (
+      <div className="min-h-screen bg-sky-blue flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-lg text-dark-brown">Receita não encontrada</div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Extrair imagens - tenta usar imageUrl como string ou array
+  const images = recipe.imageUrl 
+    ? (typeof recipe.imageUrl === 'string' ? [recipe.imageUrl] : recipe.imageUrl)
+    : [];
 
   return (
     <div className="min-h-screen bg-sky-blue flex flex-col">
@@ -231,39 +214,67 @@ Sirva imediatamente.`,
             className="flex items-center gap-3 opacity-40 hover:opacity-100 transition-opacity w-fit"
           >
             <ArrowLeft className="w-4 h-4 text-dark-brown" strokeWidth={1.5} />
-            <span className="text-base font-bold text-dark-brown underline">
-              Voltar
-            </span>
+            <span className="text-base font-bold text-dark-brown underline">Voltar</span>
           </button>
+
+          {/* Mensagens de erro/sucesso */}
+          {error && (
+            <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <p className="text-sm text-red-700">{error}</p>
+              <button
+                onClick={() => setError(null)}
+                className="ml-auto text-red-500 hover:text-red-700"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="w-5 h-5 text-green-500 flex-shrink-0">✓</div>
+              <p className="text-sm text-green-700">{successMessage}</p>
+              <button
+                onClick={() => setSuccessMessage(null)}
+                className="ml-auto text-green-500 hover:text-green-700"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* Cabeçalho da Receita */}
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
-              <span
-                className="px-2 py-1 rounded-full text-xs font-medium text-white tracking-tight"
-                style={{ backgroundColor: recipe.categoryColor }}
-              >
-                {recipe.category}
-              </span>
+              {recipe.categories && recipe.categories.length > 0 && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium text-white tracking-tight bg-purple-600">
+                  {recipe.categories[0]}
+                </span>
+              )}
               <span className="text-xs font-medium text-black/50 tracking-tight">
-                Postada em: {recipe.datePosted}
+                Postada em: {new Date(recipe.createdAt).toLocaleDateString("pt-BR")}
               </span>
             </div>
 
             <h1 className="text-5xl font-bold text-black">{recipe.title}</h1>
 
             <div className="flex items-center gap-4 bg-dark-brown rounded-lg p-2.5 w-fit">
-              <div
-                className="w-16 h-16 rounded-full bg-cover bg-center"
-                style={{ backgroundImage: `url(${recipe.author.avatar})` }}
-              />
+              {recipe.author.profirePictureUrl && (
+                <div
+                  className="w-16 h-16 rounded-full bg-cover bg-center"
+                  style={{ backgroundImage: `url(${recipe.author.profirePictureUrl})` }}
+                />
+              )}
               <div className="flex flex-col">
                 <span className="text-base font-bold text-white tracking-tight">
                   {recipe.author.name}
                 </span>
-                <span className="text-base text-white/60 tracking-tight">
-                  ⭐ {recipe.author.rating}/5
-                </span>
+                {recipe.author.biography && (
+                  <span className="text-base text-white/60 tracking-tight">
+                    {recipe.author.biography}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -272,29 +283,26 @@ Sirva imediatamente.`,
           <div className="flex flex-col items-center gap-8">
             <div className="w-full max-w-[424px] bg-dark-brown rounded-lg p-4 flex flex-col items-center gap-2">
               {/* Vídeo (se existir) */}
-              {recipe.video && (
+              {recipe.videoUrl && (
                 <div className="w-full mb-4 relative">
-                  <video 
-                    src={recipe.video}
+                  <video
+                    src={recipe.videoUrl}
                     controls
                     className="w-full h-48 rounded-lg object-cover bg-black"
                   />
                 </div>
               )}
-              
+
               {/* Carrossel de Imagens */}
-              {recipe.images.length > 0 && (
+              {images.length > 0 && (
                 <>
                   <div className="w-full overflow-hidden">
                     <div
                       className="flex transition-transform duration-300"
                       style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
                     >
-                      {recipe.images.map((img, index) => (
-                        <div
-                          key={index}
-                          className="w-full flex-shrink-0 px-3"
-                        >
+                      {images.map((img, index) => (
+                        <div key={index} className="w-full flex-shrink-0 px-3">
                           <div
                             className="w-full h-48 rounded-lg bg-cover bg-center"
                             style={{ backgroundImage: `url(${img})` }}
@@ -303,11 +311,11 @@ Sirva imediatamente.`,
                       ))}
                     </div>
                   </div>
-                  
+
                   {/* Indicadores do Carrossel */}
-                  {recipe.images.length > 1 && (
+                  {images.length > 1 && (
                     <div className="flex items-center gap-2 py-4">
-                      {recipe.images.map((_, index) => (
+                      {images.map((_, index) => (
                         <button
                           key={index}
                           onClick={() => setCurrentImageIndex(index)}
@@ -322,48 +330,77 @@ Sirva imediatamente.`,
                   )}
                 </>
               )}
+
+              {images.length === 0 && !recipe.videoUrl && (
+                <div className="w-full h-48 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500">
+                  Não implementado
+                </div>
+              )}
             </div>
 
             {/* Conteúdo da Receita */}
             <div className="w-full flex flex-col gap-8">
               <div>
                 <h2 className="text-[34px] font-bold text-black mb-4">Ingredientes</h2>
-                <p className="text-base leading-relaxed whitespace-pre-line" style={{ fontFamily: 'Merriweather, serif' }}>
-                  {recipe.ingredients}
-                </p>
+                <div className="text-base leading-relaxed" style={{ fontFamily: "Merriweather, serif" }}>
+                  {Array.isArray(recipe.ingredients) ? (
+                    <ul className="list-disc pl-6">
+                      {recipe.ingredients.map((ingredient, index) => (
+                        <li key={index} className="mb-2">
+                          {ingredient}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>{recipe.ingredients}</p>
+                  )}
+                </div>
               </div>
 
               <div>
                 <h2 className="text-[34px] font-bold text-black mb-4">Modo de Preparo</h2>
-                <p className="text-base leading-relaxed whitespace-pre-line opacity-65 font-bold" style={{ fontFamily: 'Merriweather, serif' }}>
-                  {recipe.preparation}
+                <p
+                  className="text-base leading-relaxed opacity-65 font-bold whitespace-pre-wrap"
+                  style={{ fontFamily: "Merriweather, serif" }}
+                >
+                  {recipe.instructions}
                 </p>
               </div>
 
-              {recipe.yield && (
+              {recipe.portions && (
                 <div>
                   <h3 className="text-xl font-bold text-black mb-2">Rendimento</h3>
-                  <p className="text-base">{recipe.yield}</p>
+                  <p className="text-base">{recipe.portions} porções</p>
+                </div>
+              )}
+
+              {recipe.preparationTime && (
+                <div>
+                  <h3 className="text-xl font-bold text-black mb-2">Tempo de Preparo</h3>
+                  <p className="text-base">{recipe.preparationTime} minutos</p>
                 </div>
               )}
 
               {/* Botões de Ação */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <button 
-                  onClick={() => alert('Função de exportar ainda não implementada')}
+                <button
+                  onClick={() => alert("Função de exportar ainda não implementada")}
                   className="flex items-center justify-center gap-2 px-5 py-3.5 bg-dark-brown text-white rounded-lg font-bold text-base hover:bg-dark-brown/90 transition-colors"
                 >
                   Exportar
                   <Download className="w-4 h-4" />
                 </button>
-                <button 
-                  onClick={() => alert('Função de salvar ainda não implementada')}
+                <button
+                  onClick={() => alert("Função de salvar ainda não implementada")}
                   className="flex items-center justify-center gap-2 px-5 py-3.5 bg-dark-brown text-white rounded-lg font-bold text-base hover:bg-dark-brown/90 transition-colors"
                 >
                   Salvar
                   <Heart className="w-4 h-4" />
                 </button>
-                <button className="flex items-center justify-center gap-2 px-5 py-3.5 bg-dark-brown text-white rounded-lg font-bold text-base hover:bg-dark-brown/90 transition-colors">
+                <button
+                  onClick={() => document.getElementById("avaliacao")?.scrollIntoView({ behavior: "smooth" })}
+                  className="flex items-center justify-center gap-2 px-5 py-3.5 bg-dark-brown text-white rounded-lg font-bold text-base hover:bg-dark-brown/90 transition-colors"
+                >
                   Avaliar
                   <Star className="w-4 h-4" />
                 </button>
@@ -374,52 +411,78 @@ Sirva imediatamente.`,
 
         {/* Seção de Avaliações */}
         <h2 className="text-2xl font-bold text-black my-10">
-          Avaliações ({recipe.reviewCount})
+          Avaliações ({recipe.avaliationsCount})
         </h2>
 
         {/* Lista de Avaliações */}
         <div className="flex flex-col gap-6 mb-10">
-          {reviews.map((review) => (
-            <div
-              key={review.id}
-              className="bg-white rounded-[32px_32px_32px_0] shadow-lg p-6 flex gap-5"
-            >
-              <div
-                className="w-12 h-12 rounded-full bg-cover bg-center flex-shrink-0"
-                style={{ backgroundImage: `url(${review.author.avatar})` }}
-              />
-              <div className="flex-1 flex flex-col gap-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-medium text-gray-900" style={{ fontFamily: 'Roboto, sans-serif' }}>
-                    {review.author.name}
-                  </span>
-                  <span className="text-lg text-gray-400" style={{ fontFamily: 'Roboto, sans-serif' }}>
-                    {review.timeAgo}
-                  </span>
+          {reviews.length > 0 ? (
+            reviews.map((review, idx) => {
+              const idKey = (review as any).Id ?? (review as any).id ?? `${recipe.id}-rev-${idx}`;
+              const rating = Number((review as any).Rating ?? (review as any).rating ?? 0);
+              const createdAt = (review as any).CreatedAt ?? (review as any).createdAt ?? "";
+              const content = (review as any).Content ?? (review as any).content ?? "";
+              const userId = (review as any).UserId ?? (review as any).userId ?? 0;
+              const authorName = (review as any).Author?.name ?? (review as any).Author?.Name ?? `Cozinheiro ${userId}`;
+
+              return (
+                <div key={idKey} className="bg-white rounded-[32px_32px_32px_0] shadow-lg p-6 flex gap-5">
+                  <div className="w-12 h-12 rounded-full bg-gray-300 flex-shrink-0" />
+                  <div className="flex-1 flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-medium text-gray-900" style={{ fontFamily: "Roboto, sans-serif" }}>
+                        {authorName}
+                      </span>
+                      <span className="text-lg text-gray-400" style={{ fontFamily: "Roboto, sans-serif" }}>
+                        {createdAt ? getTimeAgo(String(createdAt)) : ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <span
+                            key={star}
+                            className={star <= rating ? "text-yellow-400" : "text-gray-300"}
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-xl font-semibold">
+                        <span className="text-yellow-400">{rating}</span>
+                        <span className="text-gray-400">/5</span>
+                      </span>
+                    </div>
+                    <p
+                      className="text-base text-gray-900/60 leading-normal"
+                      style={{ fontFamily: "Roboto, sans-serif" }}
+                    >
+                      {content}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <StarRating rating={review.rating} size={40} />
-                  <span className="text-xl font-semibold">
-                    <span className="text-yellow-400">{review.rating}</span>
-                    <span className="text-gray-400">/5</span>
-                  </span>
-                </div>
-                <p className="text-base text-gray-900/60 leading-normal" style={{ fontFamily: 'Roboto, sans-serif' }}>
-                  {review.comment}
-                </p>
-              </div>
-            </div>
-          ))}
+              );
+            })
+          ) : (
+            <p className="text-gray-500 text-center py-8">Nenhuma avaliação ainda. Seja o primeiro a avaliar!</p>
+          )}
         </div>
 
         {/* Formulário de Avaliação */}
         <div id="avaliacao" className="bg-white border-2 border-black/40 p-3 flex flex-col gap-3">
           <div className="flex items-center gap-2.5">
-            <StarRating 
-              rating={userRating} 
-              interactive 
-              onRate={setUserRating}
-            />
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() => setUserRating(star)}
+                  className="text-3xl transition-colors"
+                  style={{ color: star <= userRating ? "#FCD34D" : "#D1D5DB" }}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
             <span className="text-xl font-semibold text-black/70">Avalie</span>
           </div>
 
@@ -436,12 +499,19 @@ Sirva imediatamente.`,
             />
           </div>
 
-          <button 
+          <button
             onClick={handleSubmitReview}
             disabled={isSubmittingReview}
-            className="w-full px-5 py-3.5 bg-dark-brown text-white rounded-lg font-bold text-base hover:bg-dark-brown/90 transition-colors disabled:opacity-50"
+            className="w-full px-5 py-3.5 bg-dark-brown text-white rounded-lg font-bold text-base hover:bg-dark-brown/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmittingReview ? 'Enviando...' : 'Avaliar'}
+            {isSubmittingReview ? (
+              <div className="flex items-center justify-center gap-2">
+                <Loader className="w-4 h-4 animate-spin" />
+                Enviando...
+              </div>
+            ) : (
+              "Avaliar"
+            )}
           </button>
         </div>
       </main>
