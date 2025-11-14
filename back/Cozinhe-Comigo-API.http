@@ -1,6 +1,0 @@
-@Cozinhe_Comigo_API_HostAddress = http://localhost:5150
-
-GET {{Cozinhe_Comigo_API_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
