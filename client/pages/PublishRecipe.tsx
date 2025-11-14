@@ -8,8 +8,8 @@ import { useNavigate } from "react-router-dom";
 
 const categories = [
   "Café da Manhã",
-  "Sobremesa",
-  "Massa",
+  "Sobremesas",
+  "Massas",
   "Salada",
   "Vegetariana",
   "Fácil",
