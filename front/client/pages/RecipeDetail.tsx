@@ -411,7 +411,7 @@ export default function RecipeDetail() {
 
         {/* Seção de Avaliações */}
         <h2 className="text-2xl font-bold text-black my-10">
-          Avaliações ({recipe.avaliationsCount})
+          Avaliações {/* ({recipe.avaliationsCount}) */}
         </h2>
 
         {/* Lista de Avaliações */}

@@ -34,9 +34,6 @@ export default function Login() {
         setError("Por favor, insira um email válido.");
         return;
       }
-
-      // TODO: Substituir pela chamada real da API
-      console.log("Login attempt:", formData);
       
       const response = await authService.login({
         Email: formData.email,

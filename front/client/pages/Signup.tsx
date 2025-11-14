@@ -25,12 +25,6 @@ export default function Signup() {
     setIsLoading(true);
     setError("");
 
-    console.log('Dados sendo enviados:', {
-      name: formData.name,
-      email: formData.email,
-      passWord: formData.password
-    });
-
     try {
       if (!formData.name.trim() || !formData.email.trim() 
         || !formData.password || !formData.confirmPassword) {
