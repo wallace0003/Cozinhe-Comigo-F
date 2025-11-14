@@ -4,15 +4,11 @@ import path from "path";
 // Server build configuration
 export default defineConfig({
   build: {
-    lib: {
-      entry: path.resolve(__dirname, "server/node-build.ts"),
-      name: "server",
-      fileName: "production",
-      formats: ["es"],
-    },
+    // Use SSR build with a project-relative entry so Vite/Rollup can resolve
+    // the server entry inside the Docker build context.
+    ssr: path.resolve(process.cwd(), "server/node-build.ts"),
     outDir: "dist/server",
     target: "node22",
-    ssr: true,
     rollupOptions: {
       external: [
         // Node.js built-ins

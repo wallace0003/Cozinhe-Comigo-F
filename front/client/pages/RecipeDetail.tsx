@@ -96,6 +96,7 @@ export default function RecipeDetail() {
   const handleSubmitReview = async () => {
     if (!recipe || userRating === 0 || !userComment.trim()) {
       setError("Por favor, preencha a avaliação e o comentário");
+      alert("Por favor, preencha a avaliação e o comentário");
       return;
     }
 

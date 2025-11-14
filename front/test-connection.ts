@@ -1,6 +1,6 @@
 export async function testConnection() {
   try {
-    const response = await fetch('http://localhost:5150/api/recipe');
+    const response = await fetch('cozinhe-comigo-api-production.up.railway.app/CozinheComigoAPI/Recipe');
     console.log('API Status:', response.status);
     console.log('API Headers:', response.headers);
     

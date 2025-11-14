@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5150/CozinheComigoAPI';
+// Default to the production Railway URL, but allow override with VITE_API_URL
+const API_BASE_URL = 'https://cozinhe-comigo-api-production-c7a5.up.railway.app/CozinheComigoAPI';
 
 class ApiError extends Error {
   constructor(public status: number, message: string, public body?: any) {
@@ -10,6 +11,7 @@ class ApiError extends Error {
 export const api = {
   async request(endpoint: string, options: RequestInit = {}, retryOnAuthFailure: boolean = true) {
     const url = `${API_BASE_URL}${endpoint}`;
+    console.log(url);
     const token = localStorage.getItem('token');
 
     const config: RequestInit = {

@@ -4,6 +4,7 @@ import { CreateRecipeRequest, CreateRecipeResponse, RecipesResponse, CreateAvali
 export const recipeService = {
   // GET /Recipe - Listar receitas com filtros
   async getRecipes(params?: {
+    id?:number;
     PageSize?: number;
     PageNumber?: number;
     TitleSearch?: string;
@@ -40,8 +41,46 @@ export const recipeService = {
   },
 
   // GET /Recipe/{id} - Obter receita por ID
-  async getRecipeById(id: number): Promise<{ returnObject: RecipeDetailResponse }> {
-    return api.get(`/Recipe/${id}`);
+  // GET /Recipe/{id} - Obter receita por ID
+  async getRecipeById(id: number): Promise<any> {
+    try {
+      const res = await api.get(`/Recipe?id=${id}`);
+
+      if (!res) {
+        // Retorna um shape seguro quando não há resposta
+        return { internStatusCode: -1, returnMessage: 'Empty response from API', returnObject: null };
+      }
+
+      if (res && res.returnObject) {
+        const r: any = res.returnObject;
+
+        // normaliza e garante um fallback para author (a API pode não retornar esse objeto)
+        const normalized = {
+          ...r,
+          author: r.author ?? {
+            name: r?.author?.name ?? `Cozinheiro ${r.userID ?? r.userId ?? ''}`,
+            // algumas variações possíveis de nome do campo de imagem: profirePictureUrl / profilePictureUrl
+            profirePictureUrl: r?.author?.profirePictureUrl ?? r?.author?.profilePictureUrl ?? null,
+            profilePictureUrl: r?.author?.profilePictureUrl ?? r?.author?.profirePictureUrl ?? null,
+            biography: r?.author?.biography ?? null,
+          },
+          // garante createdAt como string (consistente com code que usa new Date(...))
+          createdAt: (r.createdAt ?? r.CreatedAt ?? '').toString(),
+        };
+
+        return {
+          ...res,
+          returnObject: normalized,
+        };
+      }
+
+      // Se não houver returnObject, retorna um shape seguro
+      return { ...res, returnObject: null };
+    } catch (err: any) {
+      console.error('Error in getRecipeById:', err);
+      const message = err?.body?.returnMessage || err?.message || 'Erro ao buscar receita';
+      return { internStatusCode: -1, returnMessage: message, returnObject: null, __error: err };
+    }
   },
 
   // POST /Recipe - Criar receita

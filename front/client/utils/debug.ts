@@ -3,7 +3,7 @@ export async function debugSignup(payload: any) {
   try {
     console.log('🔍 DEBUG SIGNUP - Payload:', payload);
     
-    const response = await fetch('http://localhost:5150/CozinheComigoAPI/User', {
+  const response = await fetch('https://cozinhe-comigo-api-production.up.railway.app/CozinheComigoAPI/User', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
