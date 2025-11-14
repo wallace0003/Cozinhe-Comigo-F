@@ -160,7 +160,7 @@ export default function PublishRecipe() {
       Categories: formData.categories,
       IsPublic: formData.visibility === 'public',
       ...(formData.yield && { Portions: parseInt(formData.yield) || undefined }),
-      ImageUrl: formData.images.length > 0 ? 'temp_image_url' : undefined,
+      ImageUrl: formData.images.length > 0 ? undefined : undefined,
       VideoUrl: formData.video ? 'temp_video_url' : undefined,
     };
 

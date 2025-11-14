@@ -337,7 +337,7 @@ export default function RecipeDetail() {
 
               {images.length === 0 && !recipe.videoUrl && (
                 <div className="w-full h-48 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500">
-                  Não implementado
+                  Upload de midia em desenvolvimento.
                 </div>
               )}
             </div>
