@@ -38,7 +38,41 @@ export default function RecipeDetail() {
       const response = await recipeService.getRecipeById(recipeId);
       
       if (response.returnObject) {
-        setRecipe(response.returnObject);
+        const normalizedRecipe: any = response.returnObject;
+
+        // Se o author vier como fallback (ex: "Cozinheiro {id}") ou estiver ausente,
+        // tentar buscar o usuário real pelo userId para mostrar nome/foto corretos.
+        const authorName = normalizedRecipe.author?.name ?? normalizedRecipe.author?.Name;
+        const isFallback = typeof authorName === 'string' && /^Cozinheiro\s*\d+/i.test(authorName);
+
+        const possibleUserId = normalizedRecipe.userID ?? normalizedRecipe.userId ?? normalizedRecipe.author?.id ?? null;
+
+        if ((isFallback || !authorName) && possibleUserId) {
+          try {
+            const userRes: any = await recipeService.getUserById(Number(possibleUserId));
+
+            // API UserController retorna um objeto UserReturn diretamente no body (ou dentro de `user` em alguns endpoints)
+            const userObj = userRes?.user ?? userRes ?? null;
+
+            const realName = userObj?.Name ?? userObj?.name ?? null;
+            const profire = userObj?.ProfirePictureUrl ?? userObj?.profirePictureUrl ?? userObj?.profilePictureUrl ?? null;
+            const biography = userObj?.Biography ?? userObj?.biography ?? null;
+
+            if (realName) {
+              normalizedRecipe.author = {
+                id: Number(possibleUserId),
+                name: realName,
+                profirePictureUrl: profire,
+                biography,
+              };
+            }
+          } catch (err) {
+            // se falhar, apenas mantém o normalizedRecipe como veio (fallback permanece)
+            console.warn('Não foi possível buscar usuário do autor da receita:', err);
+          }
+        }
+
+        setRecipe(normalizedRecipe);
       } else {
         setError("Receita não encontrada");
       }
@@ -60,7 +94,43 @@ export default function RecipeDetail() {
       const response = await recipeService.getAvaliations(recipeId, 50, 1);
       
       if (response.returnObject && Array.isArray(response.returnObject)) {
-        setReviews(response.returnObject);
+        const raw = response.returnObject as any[];
+
+        // coletar userIds distintos que não tenham Author
+        const missingUserIds = Array.from(
+          new Set(
+            raw
+              .filter(r => !(r.Author || r.author))
+              .map(r => (r.UserId ?? r.userId) )
+              .filter(Boolean)
+          )
+        ) as number[];
+
+        const userNameMap: Record<number, string | null> = {};
+
+        if (missingUserIds.length > 0) {
+          // buscar todos os usuários em paralelo
+          const promises = missingUserIds.map(uid =>
+            recipeService.getUserById(uid)
+              .then((res: any) => ({ uid, name: res?.Name ?? res?.name ?? res?.user?.Name ?? res?.user?.name ?? null }))
+              .catch(() => ({ uid, name: null }))
+          );
+
+          const results = await Promise.all(promises);
+          results.forEach(r => {
+            userNameMap[Number(r.uid)] = r.name;
+          });
+        }
+
+        // anexa Author se ausente usando o mapa de nomes ou fallback para recipe.author
+        const normalized = raw.map((r: any) => ({
+          ...r,
+          Author: r.Author ?? r.author ?? (
+            r.UserId || r.userId ? { id: r.UserId ?? r.userId, name: userNameMap[r.UserId ?? r.userId] ?? null } : undefined
+          )
+        }));
+
+        setReviews(normalized);
       }
     } catch (err) {
       console.error("Erro ao carregar avaliações:", err);
@@ -427,7 +497,11 @@ export default function RecipeDetail() {
               const createdAt = (review as any).CreatedAt ?? (review as any).createdAt ?? "";
               const content = (review as any).Content ?? (review as any).content ?? "";
               const userId = (review as any).UserId ?? (review as any).userId ?? 0;
-              const authorName = (review as any).Author?.name ?? (review as any).Author?.Name ?? `Cozinheiro ${userId}`;
+              const authorName = 
+                (review as any).Author?.name 
+                ?? (review as any).Author?.Name 
+                ?? recipe.author?.name 
+                ?? `Cozinheiro ${userId}`;
 
               return (
                 <div key={idKey} className="bg-white rounded-[32px_32px_32px_0] shadow-lg p-6 flex gap-5">

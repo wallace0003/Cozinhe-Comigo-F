@@ -117,4 +117,9 @@ export const recipeService = {
 
     return res;
   },
+
+  // GET /User/{id} - Obter usuário por ID
+  async getUserById(id: number): Promise<any> {
+    return api.get(`/User/${id}`);
+  },
 };
