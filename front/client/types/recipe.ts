@@ -17,7 +17,5 @@ export interface RecipeCardProps {
     id: string;
     title: string;
     image: string;
-    rating: number;
-    author: string;
     tags: string[];
 }

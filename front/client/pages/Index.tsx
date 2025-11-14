@@ -48,12 +48,6 @@ function mapReadDtoToRecipe(dto: any): Recipe {
     id: String(dto.id),
     title: dto.title ?? "",
     image: dto.imageUrl ?? "https://images.unsplash.com/photo-1612690119274-8819a81c13a2?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=435",
-    rating: dto.averageRating ?? 0,
-    author: {
-      id: "",
-      name: "Desconhecido",
-      email: ""
-    },
     tags: Array.isArray(dto.categories) ? dto.categories.map(mapCategoryToTag) : []
   } as unknown as Recipe;
 }
@@ -169,8 +163,6 @@ export default function Index() {
                     id={recipe.id}
                     title={recipe.title}
                     image={recipe.image}
-                    rating={recipe.rating}
-                    author={recipe.author.name}
                     tags={recipe.tags}
                   />
                 ))}

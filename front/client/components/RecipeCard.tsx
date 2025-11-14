@@ -34,8 +34,6 @@ export default function RecipeCard({
   id, 
   title, 
   image, 
-  rating, 
-  author,
   tags 
 }: RecipeCardProps) {
 
@@ -81,10 +79,10 @@ export default function RecipeCard({
         {/* Metadados */}
         <div className="flex flex-col gap-1 text-sm text-gray-600">
           <div className="flex items-center gap-1">
-            ⭐ <span className="font-semibold">{rating}</span>
+            <span className="font-semibold">metadados a serem</span>
           </div>
           <div className="flex items-center gap-1">
-            👤 <span className="font-medium">{author}</span>
+            <span className="font-medium">implementados</span>
           </div>
         </div>
         
